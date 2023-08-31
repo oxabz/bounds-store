@@ -190,11 +190,11 @@ mod test {
     #[test]
     fn test() {
         let t = TestCases::new();
-        t.pass("tests/polygon.rs");
-        t.pass("tests/polygon_other_gen.rs");
-        t.pass("tests/polygon_merge_bounds.rs");
-        t.pass("tests/polygon_where.rs");
-        t.compile_fail("tests/bounds_dup.rs");
-        t.compile_fail("tests/undefined_bound.rs");
+        t.pass("trybuild/polygon.rs");
+        t.pass("trybuild/polygon_other_gen.rs");
+        t.pass("trybuild/polygon_merge_bounds.rs");
+        t.pass("trybuild/polygon_where.rs");
+        t.compile_fail("trybuild/bounds_dup.rs");
+        t.compile_fail("trybuild/undefined_bound.rs");
     }
 }

@@ -1,0 +1,9 @@
+error: proc macro panicked
+  --> trybuild/bounds_dup.rs:18:1
+   |
+18 | / bounds! {
+19 | |     Polygon => <'a, F: 'a + Float, P: Polygon<'a, F>>
+20 | | }
+   | |_^
+   |
+   = help: message: bounds! can only be called once

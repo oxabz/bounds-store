@@ -1,9 +1,0 @@
-error: proc macro panicked
-  --> tests/bounds_dup.rs:14:1
-   |
-14 | / bounds! {
-15 | |     Polygon => <'a, F: 'a + Float, P: Polygon<'a, F>>
-16 | | }
-   | |_^
-   |
-   = help: message: bounds! can only be called once
