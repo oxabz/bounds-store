@@ -30,19 +30,20 @@ fn area(polygon: P) -> F {
 }
  */
 
-use std::sync::OnceLock;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 use proc_macro::TokenStream;
 use quote::ToTokens;
 
-static STORE: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
+static STORE: OnceLock<HashMap<&'static str, (&'static str, &'static str)>> = OnceLock::new();
 
-struct Bound{
+struct Bound {
     name: syn::Ident,
     _eq_token: syn::Token![=],
     _gt_token: syn::Token![>],
     generics: syn::Generics,
+    where_clause: Option<syn::WhereClause>,
 }
 
 impl syn::parse::Parse for Bound {
@@ -51,16 +52,18 @@ impl syn::parse::Parse for Bound {
         let eq_token = input.parse()?;
         let gt_token = input.parse()?;
         let generics = input.parse()?;
+        let where_clause = input.parse()?;
         Ok(Bound {
             name,
-            _eq_token:eq_token,
-            _gt_token:gt_token,
+            _eq_token: eq_token,
+            _gt_token: gt_token,
             generics,
+            where_clause,
         })
     }
 }
 
-struct Bounds(Vec<(Bound, Option<syn::token::Comma>)>);
+struct Bounds(Vec<(Bound, Option<syn::Token!(;)>)>);
 
 impl syn::parse::Parse for Bounds {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
@@ -82,11 +85,18 @@ pub fn bounds(input: TokenStream) -> TokenStream {
     }
     let mut store = HashMap::new();
     for (bound, _) in bounds.0 {
-        let names = bound.name.to_string();
+        let names = &*bound.name.to_string().leak();
+
         let generics = bound.generics;
         let generics = generics.into_token_stream();
-        let generics = generics.to_string();        
-        store.insert(&*names.leak(), &*generics.leak());
+        let generics = &*generics.to_string().leak();
+
+        let where_clause = bound.where_clause;
+        let where_clause = where_clause.map(|w| w.into_token_stream());
+        let where_clause = where_clause.map(|w| &*w.to_string().leak()).unwrap_or("");
+
+        eprintln!("{} => {}", names, generics);
+        store.insert(names, (generics, where_clause));
     }
 
     STORE.set(store).expect("Could not set store");
@@ -111,22 +121,27 @@ impl syn::parse::Parse for BoundAliasParams {
 pub fn bound_alias(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut item = syn::parse_macro_input!(item as syn::ItemFn);
     let params = syn::parse_macro_input!(attr as BoundAliasParams);
-    
-    let store = STORE.get().expect("bounds_alias! must be called before bounds attribute");
+
+    let store = STORE
+        .get()
+        .expect("bounds_alias! must be called before bounds attribute");
 
     let generics = &mut item.sig.generics;
 
-    for (alias, _ ) in params.0{
+    for (alias, _) in params.0 {
         let name = alias.to_string();
-        let bound_alias = store.get(&*name).expect(&format!("Could not find bound {}", name));
-        let bound_alias: syn::Generics = syn::parse_str(bound_alias).expect("Could not parse bound");
-        let alias_params = bound_alias.params;
-        
+        let (bound_alias_params, bound_alias_where) = store
+            .get(&*name)
+            .expect(&format!("Could not find bound {}", name));
+
+        let bound_alias_params: syn::Generics =
+            syn::parse_str(bound_alias_params).expect("Could not parse bound");
+        let alias_params = bound_alias_params.params;
         for param in alias_params {
             match param {
                 syn::GenericParam::Lifetime(_) | syn::GenericParam::Const(_) => {
                     generics.params.push(param);
-                },
+                }
                 syn::GenericParam::Type(ty) => {
                     let existant = generics.params.iter_mut().find(|p| {
                         if let syn::GenericParam::Type(existant) = p {
@@ -146,8 +161,23 @@ pub fn bound_alias(attr: TokenStream, item: TokenStream) -> TokenStream {
                     } else {
                         generics.params.push(syn::GenericParam::Type(ty));
                     }
-                },
+                }
             }
+        }
+
+        let bound_alias_where: Option<syn::WhereClause> =
+            syn::parse_str(bound_alias_where).expect("Could not parse bound");
+        if let Some(alias_where) = bound_alias_where {
+            let alias_where = alias_where.predicates;
+            if generics.where_clause.is_none() {
+                generics.make_where_clause();
+            }
+            generics
+                .where_clause
+                .as_mut()
+                .unwrap()
+                .predicates
+                .extend(alias_where);
         }
     }
 
@@ -155,15 +185,16 @@ pub fn bound_alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use trybuild::TestCases;
 
     #[test]
-    fn test(){
+    fn test() {
         let t = TestCases::new();
         t.pass("tests/polygon.rs");
         t.pass("tests/polygon_other_gen.rs");
         t.pass("tests/polygon_merge_bounds.rs");
+        t.pass("tests/polygon_where.rs");
         t.compile_fail("tests/bounds_dup.rs");
         t.compile_fail("tests/undefined_bound.rs");
     }
