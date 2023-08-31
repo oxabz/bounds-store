@@ -95,7 +95,6 @@ pub fn bounds(input: TokenStream) -> TokenStream {
         let where_clause = where_clause.map(|w| w.into_token_stream());
         let where_clause = where_clause.map(|w| &*w.to_string().leak()).unwrap_or("");
 
-        eprintln!("{} => {}", names, generics);
         store.insert(names, (generics, where_clause));
     }
 
