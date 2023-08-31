@@ -1,5 +1,5 @@
 [package]
-name = "bound_store"
+name = "bounds-store"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +11,6 @@ proc-macro = true
 [dependencies]
 syn = { version="2.0.29", features=["full"] }
 quote = "1.0"
+
+[dev-dependencies]
+trybuild = "1.0"

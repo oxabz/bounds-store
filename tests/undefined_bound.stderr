@@ -1,0 +1,7 @@
+error: custom attribute panicked
+  --> tests/undefined_bound.rs:14:1
+   |
+14 | #[bound_alias(NotPolygon)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: message: Could not find bound NotPolygon
